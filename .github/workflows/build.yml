@@ -30,15 +30,15 @@ jobs:
     
     - name: Build
       shell: msys2 {0}
+      working-directory: ${{ github.workspace }}
       run: |
-        cd ${{ github.workspace }}
         make windows
     
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: aether-node-windows-x64
-        path: bin/aether-node.exe
+        path: ${{ github.workspace }}/bin/aether-node.exe
         retention-days: 30
 
   # Linux Build
@@ -54,6 +54,7 @@ jobs:
         sudo apt-get install -y build-essential
     
     - name: Build
+      working-directory: ${{ github.workspace }}
       run: |
         make linux
     
@@ -61,7 +62,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: aether-node-linux-x64
-        path: bin/aether-node
+        path: ${{ github.workspace }}/bin/aether-node
         retention-days: 30
 
   # macOS Build
@@ -72,6 +73,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Build
+      working-directory: ${{ github.workspace }}
       run: |
         make
     
@@ -79,7 +81,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: aether-node-macos-x64
-        path: bin/aether-node
+        path: ${{ github.workspace }}/bin/aether-node
         retention-days: 30
 
   # Create Release Assets
@@ -94,11 +96,11 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
-        path: artifacts
+        path: ${{ github.workspace }}/artifacts
     
     - name: Prepare release assets
+      working-directory: ${{ github.workspace }}/artifacts
       run: |
-        cd artifacts
         zip -r aether-node-windows-x64.zip aether-node-windows-x64/
         zip -r aether-node-linux-x64.zip aether-node-linux-x64/
         zip -r aether-node-macos-x64.zip aether-node-macos-x64/
@@ -107,8 +109,8 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/aether-node-windows-x64.zip
-          artifacts/aether-node-linux-x64.zip
-          artifacts/aether-node-macos-x64.zip
+          ${{ github.workspace }}/artifacts/aether-node-windows-x64.zip
+          ${{ github.workspace }}/artifacts/aether-node-linux-x64.zip
+          ${{ github.workspace }}/artifacts/aether-node-macos-x64.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
