@@ -1,0 +1,114 @@
+name: Build A.E.T.H.E.R. Node
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [created]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Windows Build (MinGW)
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup MinGW
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: UCRT64
+        update: true
+        install: |
+          mingw-w64-ucrt-x86_64-gcc
+          mingw-w64-ucrt-x86_64-make
+    
+    - name: Build
+      shell: msys2 {0}
+      run: |
+        cd ${{ github.workspace }}
+        make windows
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aether-node-windows-x64
+        path: bin/aether-node.exe
+        retention-days: 30
+
+  # Linux Build
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+    
+    - name: Build
+      run: |
+        make linux
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aether-node-linux-x64
+        path: bin/aether-node
+        retention-days: 30
+
+  # macOS Build
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build
+      run: |
+        make
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aether-node-macos-x64
+        path: bin/aether-node
+        retention-days: 30
+
+  # Create Release Assets
+  release:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Prepare release assets
+      run: |
+        cd artifacts
+        zip -r aether-node-windows-x64.zip aether-node-windows-x64/
+        zip -r aether-node-linux-x64.zip aether-node-linux-x64/
+        zip -r aether-node-macos-x64.zip aether-node-macos-x64/
+    
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/aether-node-windows-x64.zip
+          artifacts/aether-node-linux-x64.zip
+          artifacts/aether-node-macos-x64.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
