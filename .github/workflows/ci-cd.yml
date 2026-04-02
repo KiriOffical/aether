@@ -1,0 +1,277 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [created]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+  PROJECT_NAME: aether-node
+
+jobs:
+  # ============================================
+  # C++ Implementation - Linux
+  # ============================================
+  cpp-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cpp
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+
+    - name: Build C++
+      run: make release
+
+    - name: Test binary
+      run: |
+        ./bin/${{ env.PROJECT_NAME }} --help
+        echo "C++ Linux binary built successfully!"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aether-node-linux-x64
+        path: cpp/bin/${{ env.PROJECT_NAME }}
+        retention-days: 30
+
+  # ============================================
+  # C++ Implementation - Windows (MinGW)
+  # ============================================
+  cpp-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cpp
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MinGW
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: UCRT64
+        update: true
+        install: >-
+          mingw-w64-ucrt-x86_64-toolchain
+          base-devel
+          make
+
+    - name: Build C++
+      shell: msys2 {0}
+      run: make release
+
+    - name: Test binary
+      shell: msys2 {0}
+      run: ./bin/${{ env.PROJECT_NAME }}.exe --help
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aether-node-windows-x64
+        path: cpp/bin/${{ env.PROJECT_NAME }}.exe
+        retention-days: 30
+
+  # ============================================
+  # C++ Implementation - macOS
+  # ============================================
+  cpp-macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: cpp
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build C++
+      run: make release
+
+    - name: Test binary
+      run: ./bin/${{ env.PROJECT_NAME }} --help
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aether-node-macos-x64
+        path: cpp/bin/${{ env.PROJECT_NAME }}
+        retention-days: 30
+
+  # ============================================
+  # Python Implementation - Linux
+  # ============================================
+  python-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Lint Python
+      run: |
+        pip install flake8
+        flake8 aether/ tests/ --max-line-length=120 --ignore=E501,W503 || true
+
+    - name: Type check Python
+      run: |
+        pip install mypy
+        mypy aether/ --ignore-missing-imports || true
+
+    - name: Test Python
+      run: |
+        pip install pytest
+        pytest tests/ -v
+
+    - name: Test imports
+      run: python -c "from aether import Crypto, KeyPair, DHT, Node, Client; print('Python imports OK')"
+
+  # ============================================
+  # Python Implementation - Windows
+  # ============================================
+  python-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: python
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Test Python
+      run: |
+        pip install pytest
+        pytest tests/ -v
+
+    - name: Test imports
+      run: python -c "from aether import Crypto, KeyPair, DHT, Node, Client; print('Python imports OK')"
+
+  # ============================================
+  # Python Implementation - macOS
+  # ============================================
+  python-macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: python
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Test Python
+      run: |
+        pip install pytest
+        pytest tests/ -v
+
+    - name: Test imports
+      run: python -c "from aether import Crypto, KeyPair, DHT, Node, Client; print('Python imports OK')"
+
+  # ============================================
+  # Create Release Assets (Binaries)
+  # ============================================
+  release-binaries:
+    needs: [cpp-linux, cpp-windows, cpp-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release assets
+      working-directory: artifacts
+      run: |
+        zip -r aether-node-windows-x64.zip aether-node-windows-x64/
+        zip -r aether-node-linux-x64.zip aether-node-linux-x64/
+        zip -r aether-node-macos-x64.zip aether-node-macos-x64/
+        ls -la *.zip
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/aether-node-windows-x64.zip
+          artifacts/aether-node-linux-x64.zip
+          artifacts/aether-node-macos-x64.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # Publish Python Package to PyPI
+  # ============================================
+  publish-python:
+    needs: [python-linux, python-windows, python-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    defaults:
+      run:
+        working-directory: python
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install build tools
+      run: |
+        pip install --upgrade pip
+        pip install build twine
+
+    - name: Build package
+      run: python -m build
+
+    - name: Publish to PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: twine upload dist/*
