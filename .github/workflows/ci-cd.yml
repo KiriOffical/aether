@@ -50,7 +50,7 @@ jobs:
   # C++ Implementation - Windows (MinGW)
   # ============================================
   cpp-windows:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: cpp
@@ -58,23 +58,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup MinGW
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: UCRT64
-        update: true
-        install: >-
-          mingw-w64-ucrt-x86_64-toolchain
-          base-devel
-          make
+    - name: Install MinGW cross-compiler
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mingw-w64
 
-    - name: Build C++
-      shell: msys2 {0}
-      run: make release
+    - name: Build C++ for Windows
+      run: make windows
 
-    - name: Test binary
-      shell: msys2 {0}
-      run: ./bin/${{ env.PROJECT_NAME }}.exe --help
+    - name: Install Wine for testing
+      run: |
+        sudo apt-get install -y wine64
+
+    - name: Test binary with Wine
+      run: wine bin/${{ env.PROJECT_NAME }}.exe --help
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

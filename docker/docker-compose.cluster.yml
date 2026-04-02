@@ -1,0 +1,92 @@
+# Docker Compose for A.E.T.H.E.R. Node Cluster
+# Multi-node deployment for testing
+
+version: '3.8'
+
+services:
+  aether-node-1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: aether-node:latest
+    container_name: aether-node-1
+    ports:
+      - "7821:7821"
+    volumes:
+      - aether-data-1:/aether_data
+    environment:
+      - AETHER_PORT=7821
+      - AETHER_LOG_LEVEL=DEBUG
+      - AETHER_MAX_CONNECTIONS=100
+    restart: unless-stopped
+    networks:
+      - aether-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.settimeout(5); result = s.connect_ex(('localhost', 7821)); s.close(); exit(0 if result == 0 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  aether-node-2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: aether-node:latest
+    container_name: aether-node-2
+    ports:
+      - "7822:7822"
+    volumes:
+      - aether-data-2:/aether_data
+    environment:
+      - AETHER_PORT=7822
+      - AETHER_LOG_LEVEL=DEBUG
+      - AETHER_MAX_CONNECTIONS=100
+      - AETHER_BOOTSTRAP_PEERS=aether-node-1:7821
+    restart: unless-stopped
+    depends_on:
+      - aether-node-1
+    networks:
+      - aether-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.settimeout(5); result = s.connect_ex(('localhost', 7822)); s.close(); exit(0 if result == 0 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  aether-node-3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: aether-node:latest
+    container_name: aether-node-3
+    ports:
+      - "7823:7823"
+    volumes:
+      - aether-data-3:/aether_data
+    environment:
+      - AETHER_PORT=7823
+      - AETHER_LOG_LEVEL=DEBUG
+      - AETHER_MAX_CONNECTIONS=100
+      - AETHER_BOOTSTRAP_PEERS=aether-node-1:7821
+    restart: unless-stopped
+    depends_on:
+      - aether-node-1
+    networks:
+      - aether-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.settimeout(5); result = s.connect_ex(('localhost', 7823)); s.close(); exit(0 if result == 0 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  aether-data-1:
+    driver: local
+  aether-data-2:
+    driver: local
+  aether-data-3:
+    driver: local
+
+networks:
+  aether-network:
+    driver: bridge

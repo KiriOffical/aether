@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.E.T.H.E.R. Node Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --bg-dark: #1a1a2e;
+            --bg-card: #16213e;
+            --text-muted: #6c757d;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: rgba(22, 33, 62, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            height: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        .stat-icon.blue { background: rgba(13, 110, 253, 0.2); color: #0d6efd; }
+        .stat-icon.green { background: rgba(25, 135, 84, 0.2); color: #198754; }
+        .stat-icon.yellow { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+        .stat-icon.purple { background: rgba(111, 66, 193, 0.2); color: #6f42c1; }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .chart-container {
+            background: rgba(22, 33, 62, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .peer-list {
+            background: rgba(22, 33, 62, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+        }
+        
+        .peer-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            transition: background 0.2s;
+        }
+        
+        .peer-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+        }
+        
+        .peer-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 1rem;
+        }
+        
+        .peer-status.online { background: #198754; }
+        .peer-status.offline { background: #dc3545; }
+        .peer-status.busy { background: #ffc107; }
+        
+        .trust-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .trust-verified { background: rgba(25, 135, 84, 0.3); color: #198754; }
+        .trust-trusted { background: rgba(13, 110, 253, 0.3); color: #0d6efd; }
+        .trust-neutral { background: rgba(108, 117, 125, 0.3); color: #6c757d; }
+        .trust-distrusted { background: rgba(255, 193, 7, 0.3); color: #ffc107; }
+        .trust-blacklisted { background: rgba(220, 53, 69, 0.3); color: #dc3545; }
+        
+        .log-terminal {
+            background: #0d1117;
+            border-radius: 10px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .log-time { color: #6c757d; }
+        .log-info { color: #0d6efd; }
+        .log-warning { color: #ffc107; }
+        .log-error { color: #dc3545; }
+        .log-success { color: #198754; }
+        
+        .health-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        .health-healthy { background: rgba(25, 135, 84, 0.2); color: #198754; }
+        .health-degraded { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+        .health-unhealthy { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+        
+        .action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .connection-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        
+        .navbar-brand span {
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <h4 class="mb-0">
+                        <i class="bi bi-hexagon-fill me-2"></i>
+                        A.E.T.H.E.R.
+                        <span style="font-size: 0.7em; color: var(--text-muted);">Dashboard</span>
+                    </h4>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-center align-items-center">
+                        <span class="health-indicator me-3" id="healthStatus">
+                            <i class="bi bi-circle-fill me-2" style="font-size: 0.5em;"></i>
+                            <span id="healthText">Healthy</span>
+                        </span>
+                        <span class="text-muted" id="uptime">Uptime: --:--:--</span>
+                    </div>
+                </div>
+                <div class="col-md-3 text-end">
+                    <button class="btn btn-outline-light btn-sm me-2" onclick="refreshData()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                        <i class="bi bi-gear"></i> Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid px-4">
+        <!-- Stats Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div class="stat-value" id="peerCount">0</div>
+                    <div class="stat-label">Connected Peers</div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i class="bi bi-database"></i>
+                    </div>
+                    <div class="stat-value" id="dhtKeys">0</div>
+                    <div class="stat-label">DHT Keys Stored</div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon yellow">
+                        <i class="bi bi-hdd-network"></i>
+                    </div>
+                    <div class="stat-value" id="dhtNodes">0</div>
+                    <div class="stat-label">Known Nodes</div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <i class="bi bi-speedometer2"></i>
+                    </div>
+                    <div class="stat-value" id="networkSpeed">0</div>
+                    <div class="stat-label">KB/s Network</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-8">
+                <div class="chart-container">
+                    <h5 class="mb-4">
+                        <i class="bi bi-graph-up me-2"></i>
+                        Network Traffic
+                    </h5>
+                    <canvas id="networkChart" height="80"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-container">
+                    <h5 class="mb-4">
+                        <i class="bi bi-pie-chart me-2"></i>
+                        Trust Distribution
+                    </h5>
+                    <canvas id="trustChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Peers and Logs Row -->
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="peer-list">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-people-fill me-2"></i>
+                            Connected Peers
+                        </h5>
+                        <span class="badge bg-primary" id="peerBadge">0 peers</span>
+                    </div>
+                    <div id="peersContainer">
+                        <!-- Peers will be loaded here -->
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
+                            <p class="mt-2">Loading peers...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="peer-list">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-terminal me-2"></i>
+                            Activity Log
+                        </h5>
+                        <button class="btn btn-sm btn-outline-light" onclick="clearLogs()">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
+                    <div class="log-terminal" id="logTerminal">
+                        <!-- Logs will be added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DHT Storage Table -->
+        <div class="row g-4 mt-4">
+            <div class="col-12">
+                <div class="chart-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-table me-2"></i>
+                            Recent DHT Entries
+                        </h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-light me-2" onclick="refreshDHT()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#storeModal">
+                                <i class="bi bi-plus"></i> Store Value
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Key</th>
+                                    <th>Value</th>
+                                    <th>Size</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dhtTable">
+                                <!-- DHT entries will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Store Value Modal -->
+    <div class="modal fade" id="storeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background: var(--bg-card);">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Store Value in DHT</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="storeForm">
+                        <div class="mb-3">
+                            <label class="form-label">Key</label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary" id="storeKey" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Value</label>
+                            <textarea class="form-control bg-dark text-light border-secondary" id="storeValue" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">TTL (hours)</label>
+                            <input type="number" class="form-control bg-dark text-light border-secondary" id="storeTTL" value="24">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="storeValue()">
+                        <i class="bi bi-check-lg"></i> Store
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content" style="background: var(--bg-card);">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Dashboard Settings</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Node Address</label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary" id="nodeAddress" value="localhost:7821">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Refresh Interval (seconds)</label>
+                        <input type="number" class="form-control bg-dark text-light border-secondary" id="refreshInterval" value="5" min="1" max="60">
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+                        <label class="form-check-label">Auto-refresh</label>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-primary" onclick="saveSettings()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Configuration
+        let config = {
+            nodeAddress: 'localhost:7821',
+            refreshInterval: 5,
+            autoRefresh: true
+        };
+
+        // Chart instances
+        let networkChart, trustChart;
+
+        // Data storage
+        let networkHistory = {
+            labels: [],
+            sent: [],
+            received: []
+        };
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
+            initCharts();
+            refreshData();
+            
+            if (config.autoRefresh) {
+                setInterval(refreshData, config.refreshInterval * 1000);
+            }
+            
+            addLog('Dashboard initialized', 'info');
+        });
+
+        // Initialize charts
+        function initCharts() {
+            // Network chart
+            const networkCtx = document.getElementById('networkChart').getContext('2d');
+            networkChart = new Chart(networkCtx, {
+                type: 'line',
+                data: {
+                    labels: networkHistory.labels,
+                    datasets: [
+                        {
+                            label: 'Sent (KB)',
+                            data: networkHistory.sent,
+                            borderColor: '#0d6efd',
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Received (KB)',
+                            data: networkHistory.received,
+                            borderColor: '#198754',
+                            backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#fff' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#6c757d' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#6c757d' }
+                        }
+                    }
+                }
+            });
+
+            // Trust chart
+            const trustCtx = document.getElementById('trustChart').getContext('2d');
+            trustChart = new Chart(trustCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Verified', 'Trusted', 'Neutral', 'Distrusted', 'Blacklisted'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            'rgba(25, 135, 84, 0.8)',
+                            'rgba(13, 110, 253, 0.8)',
+                            'rgba(108, 117, 125, 0.8)',
+                            'rgba(255, 193, 7, 0.8)',
+                            'rgba(220, 53, 69, 0.8)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#fff', padding: 10 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Refresh all data
+        async function refreshData() {
+            try {
+                await Promise.all([
+                    fetchStatus(),
+                    fetchPeers(),
+                    fetchMetrics()
+                ]);
+                addLog('Data refreshed successfully', 'success');
+            } catch (error) {
+                addLog(`Refresh failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Fetch node status
+        async function fetchStatus() {
+            // Simulated data - replace with actual API calls
+            const status = {
+                node_id: 'a1b2c3d4...',
+                port: 7821,
+                peer_count: Math.floor(Math.random() * 50) + 10,
+                dht_keys: Math.floor(Math.random() * 1000) + 100,
+                dht_nodes: Math.floor(Math.random() * 500) + 50,
+                uptime_seconds: Math.floor(Math.random() * 86400),
+                health: 'healthy'
+            };
+
+            // Update UI
+            document.getElementById('peerCount').textContent = status.peer_count;
+            document.getElementById('dhtKeys').textContent = status.dht_keys;
+            document.getElementById('dhtNodes').textContent = status.dht_nodes;
+            document.getElementById('networkSpeed').textContent = Math.floor(Math.random() * 100);
+            
+            // Update health
+            const healthEl = document.getElementById('healthStatus');
+            const healthText = document.getElementById('healthText');
+            healthEl.className = `health-indicator health-${status.health}`;
+            healthText.textContent = status.health.charAt(0).toUpperCase() + status.health.slice(1);
+            
+            // Update uptime
+            const hours = Math.floor(status.uptime_seconds / 3600);
+            const minutes = Math.floor((status.uptime_seconds % 3600) / 60);
+            const seconds = status.uptime_seconds % 60;
+            document.getElementById('uptime').textContent = 
+                `Uptime: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Fetch peers
+        async function fetchPeers() {
+            // Simulated peer data
+            const peers = [
+                { id: 'abc123', addr: '192.168.1.100', port: 7821, trust: 'TRUSTED', status: 'online' },
+                { id: 'def456', addr: '10.0.0.50', port: 7821, trust: 'VERIFIED', status: 'online' },
+                { id: 'ghi789', addr: '172.16.0.25', port: 7821, trust: 'NEUTRAL', status: 'busy' },
+                { id: 'jkl012', addr: '192.168.2.200', port: 7821, trust: 'TRUSTED', status: 'online' },
+                { id: 'mno345', addr: '10.1.1.100', port: 7821, trust: 'DISTRUSTED', status: 'offline' }
+            ];
+
+            const container = document.getElementById('peersContainer');
+            container.innerHTML = peers.map(peer => `
+                <div class="peer-item">
+                    <div class="peer-status ${peer.status}"></div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">${peer.addr}:${peer.port}</div>
+                        <div class="text-muted small">${peer.id}</div>
+                    </div>
+                    <span class="trust-badge trust-${peer.trust.toLowerCase()}">${peer.trust}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('peerBadge').textContent = `${peers.length} peers`;
+            
+            // Update trust chart
+            updateTrustChart(peers);
+        }
+
+        // Update trust distribution chart
+        function updateTrustChart(peers) {
+            const distribution = {
+                VERIFIED: 0,
+                TRUSTED: 0,
+                NEUTRAL: 0,
+                DISTRUSTED: 0,
+                BLACKLISTED: 0
+            };
+            
+            peers.forEach(peer => {
+                distribution[peer.trust] = (distribution[peer.trust] || 0) + 1;
+            });
+            
+            trustChart.data.datasets[0].data = [
+                distribution.VERIFIED,
+                distribution.TRUSTED,
+                distribution.NEUTRAL,
+                distribution.DISTRUSTED,
+                distribution.BLACKLISTED
+            ];
+            trustChart.update();
+        }
+
+        // Fetch metrics
+        async function fetchMetrics() {
+            // Simulated metrics
+            const now = new Date().toLocaleTimeString();
+            
+            if (networkHistory.labels.length >= 20) {
+                networkHistory.labels.shift();
+                networkHistory.sent.shift();
+                networkHistory.received.shift();
+            }
+            
+            networkHistory.labels.push(now);
+            networkHistory.sent.push(Math.floor(Math.random() * 50) + 10);
+            networkHistory.received.push(Math.floor(Math.random() * 80) + 20);
+            
+            networkChart.update();
+        }
+
+        // Store value
+        async function storeValue() {
+            const key = document.getElementById('storeKey').value;
+            const value = document.getElementById('storeValue').value;
+            const ttl = document.getElementById('storeTTL').value;
+            
+            try {
+                // Simulated API call
+                addLog(`Stored value: ${key} (${value.length} bytes)`, 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('storeModal'));
+                modal.hide();
+                
+                // Clear form
+                document.getElementById('storeForm').reset();
+                
+                // Refresh DHT table
+                refreshDHT();
+            } catch (error) {
+                addLog(`Store failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Refresh DHT table
+        async function refreshDHT() {
+            const tbody = document.getElementById('dhtTable');
+            
+            // Simulated DHT data
+            const entries = [
+                { key: 'user:1001', value: '{"name":"Alice"}', size: 24, created: '2 mins ago' },
+                { key: 'config:main', value: '{"theme":"dark"}', size: 18, created: '5 mins ago' },
+                { key: 'session:abc', value: 'xyz123...', size: 64, created: '10 mins ago' },
+                { key: 'cache:page1', value: '<html>...', size: 1024, created: '15 mins ago' }
+            ];
+            
+            tbody.innerHTML = entries.map(entry => `
+                <tr>
+                    <td><code>${entry.key}</code></td>
+                    <td><code class="text-muted">${entry.value.substring(0, 30)}${entry.value.length > 30 ? '...' : ''}</code></td>
+                    <td>${entry.size} B</td>
+                    <td>${entry.created}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-light" onclick="deleteKey('${entry.key}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Delete key
+        async function deleteKey(key) {
+            if (confirm(`Delete key "${key}"?`)) {
+                try {
+                    addLog(`Deleted key: ${key}`, 'warning');
+                    refreshDHT();
+                } catch (error) {
+                    addLog(`Delete failed: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const terminal = document.getElementById('logTerminal');
+            const time = new Date().toLocaleTimeString();
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-${type}">${message}</span>
+            `;
+            
+            terminal.insertBefore(entry, terminal.firstChild);
+            
+            // Limit log entries
+            while (terminal.children.length > 100) {
+                terminal.removeChild(terminal.lastChild);
+            }
+        }
+
+        // Clear logs
+        function clearLogs() {
+            document.getElementById('logTerminal').innerHTML = '';
+            addLog('Logs cleared', 'info');
+        }
+
+        // Save settings
+        function saveSettings() {
+            config.nodeAddress = document.getElementById('nodeAddress').value;
+            config.refreshInterval = parseInt(document.getElementById('refreshInterval').value);
+            config.autoRefresh = document.getElementById('autoRefresh').checked;
+            
+            localStorage.setItem('aether_config', JSON.stringify(config));
+            addLog('Settings saved', 'success');
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+            modal.hide();
+        }
+
+        // Load settings
+        function loadSettings() {
+            const saved = localStorage.getItem('aether_config');
+            if (saved) {
+                config = JSON.parse(saved);
+                document.getElementById('nodeAddress').value = config.nodeAddress;
+                document.getElementById('refreshInterval').value = config.refreshInterval;
+                document.getElementById('autoRefresh').checked = config.autoRefresh;
+            }
+        }
+    </script>
+</body>
+</html>

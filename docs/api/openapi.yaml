@@ -1,0 +1,755 @@
+openapi: 3.0.3
+info:
+  title: A.E.T.H.E.R. Node API
+  description: |
+    RESTful API for A.E.T.H.E.R. P2P Node management and interaction.
+    
+    A.E.T.H.E.R. (Asynchronous Edge-Tolerant Holographic Execution Runtime) 
+    is a decentralized P2P network with DHT storage and peer management.
+    
+    ## Features
+    - DHT key-value storage
+    - Peer discovery and management
+    - Node statistics and monitoring
+    - Network configuration
+    
+  version: 0.1.0
+  contact:
+    name: A.E.T.H.E.R. Team
+    url: https://github.com/aether
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:7821/api/v1
+    description: Local development server
+  - url: http://{host}:{port}/api/v1
+    description: Production server
+    variables:
+      host:
+        default: localhost
+        description: Node hostname
+      port:
+        default: "7821"
+        description: Node port
+
+tags:
+  - name: DHT
+    description: Distributed Hash Table operations
+  - name: Peers
+    description: Peer management
+  - name: Node
+    description: Node information and control
+  - name: Network
+    description: Network configuration
+  - name: Metrics
+    description: Monitoring and metrics
+
+paths:
+  /health:
+    get:
+      tags:
+        - Node
+      summary: Health check
+      description: Check if the node is healthy and running
+      operationId: getHealth
+      responses:
+        '200':
+          description: Node is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Node is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /status:
+    get:
+      tags:
+        - Node
+      summary: Node status
+      description: Get detailed node status and statistics
+      operationId: getNodeStatus
+      responses:
+        '200':
+          description: Node status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeStatus'
+
+  /dht/store:
+    post:
+      tags:
+        - DHT
+      summary: Store value in DHT
+      description: Store a key-value pair in the distributed hash table
+      operationId: storeValue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreRequest'
+      responses:
+        '201':
+          description: Value stored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Storage failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /dht/get/{key}:
+    get:
+      tags:
+        - DHT
+      summary: Get value from DHT
+      description: Retrieve a value by key from the distributed hash table
+      operationId: getValue
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: Key to retrieve (hex-encoded or base64)
+          schema:
+            type: string
+        - name: encoding
+          in: query
+          required: false
+          description: Encoding of the key (hex or base64)
+          schema:
+            type: string
+            enum: [hex, base64]
+            default: hex
+      responses:
+        '200':
+          description: Value retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetResponse'
+        '404':
+          description: Key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /dht/delete/{key}:
+    delete:
+      tags:
+        - DHT
+      summary: Delete value from DHT
+      description: Delete a key-value pair from the distributed hash table
+      operationId: deleteValue
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: Key to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Value deleted successfully
+        '404':
+          description: Key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /dht/find/{key}:
+    get:
+      tags:
+        - DHT
+      summary: Find nodes responsible for key
+      description: Find the nodes responsible for storing a given key
+      operationId: findNodesForKey
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: Key to find responsible nodes for
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of nodes to return
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Nodes found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindNodesResponse'
+
+  /peers:
+    get:
+      tags:
+        - Peers
+      summary: List connected peers
+      description: Get list of currently connected peers
+      operationId: listPeers
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of peers to return
+          schema:
+            type: integer
+            default: 100
+        - name: trust_level
+          in: query
+          required: false
+          description: Filter by minimum trust level
+          schema:
+            $ref: '#/components/schemas/TrustLevel'
+      responses:
+        '200':
+          description: Peers listed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerList'
+
+  /peers/{peer_id}:
+    get:
+      tags:
+        - Peers
+      summary: Get peer details
+      description: Get detailed information about a specific peer
+      operationId: getPeer
+      parameters:
+        - name: peer_id
+          in: path
+          required: true
+          description: Peer ID (hex-encoded)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Peer details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeerDetails'
+        '404':
+          description: Peer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Peers
+      summary: Disconnect peer
+      description: Disconnect from a specific peer
+      operationId: disconnectPeer
+      parameters:
+        - name: peer_id
+          in: path
+          required: true
+          description: Peer ID to disconnect
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Peer disconnected
+        '404':
+          description: Peer not found
+
+  /peers/connect:
+    post:
+      tags:
+        - Peers
+      summary: Connect to peer
+      description: Initiate connection to a new peer
+      operationId: connectToPeer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectRequest'
+      responses:
+        '201':
+          description: Connection initiated
+        '400':
+          description: Invalid request
+        '409':
+          description: Already connected to peer
+
+  /network/config:
+    get:
+      tags:
+        - Network
+      summary: Get network configuration
+      description: Get current network configuration
+      operationId: getNetworkConfig
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkConfig'
+
+    put:
+      tags:
+        - Network
+      summary: Update network configuration
+      description: Update network configuration settings
+      operationId: updateNetworkConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NetworkConfigUpdate'
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkConfig'
+        '400':
+          description: Invalid configuration
+
+  /network/bootstrap:
+    post:
+      tags:
+        - Network
+      summary: Add bootstrap node
+      description: Add a bootstrap node to the peer list
+      operationId: addBootstrapNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BootstrapNode'
+      responses:
+        '201':
+          description: Bootstrap node added
+        '400':
+          description: Invalid request
+
+  /metrics:
+    get:
+      tags:
+        - Metrics
+      summary: Get metrics
+      description: Get node metrics in Prometheus format
+      operationId: getMetrics
+      parameters:
+        - name: format
+          in: query
+          required: false
+          description: Output format
+          schema:
+            type: string
+            enum: [prometheus, json]
+            default: prometheus
+      responses:
+        '200':
+          description: Metrics retrieved
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+
+  /metrics/summary:
+    get:
+      tags:
+        - Metrics
+      summary: Get metrics summary
+      description: Get summarized node metrics
+      operationId: getMetricsSummary
+      responses:
+        '200':
+          description: Metrics summary retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsSummary'
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        uptime_seconds:
+          type: number
+          format: double
+        version:
+          type: string
+        node_id:
+          type: string
+          description: Hex-encoded node ID
+        timestamp:
+          type: string
+          format: date-time
+
+    NodeStatus:
+      type: object
+      properties:
+        node_id:
+          type: string
+        port:
+          type: integer
+        peer_count:
+          type: integer
+        dht_keys:
+          type: integer
+        dht_nodes:
+          type: integer
+        version:
+          type: string
+        uptime_seconds:
+          type: number
+          format: double
+        network:
+          $ref: '#/components/schemas/NetworkStatus'
+
+    NetworkStatus:
+      type: object
+      properties:
+        public_ip:
+          type: string
+        nat_type:
+          type: string
+        connections_in:
+          type: integer
+        connections_out:
+          type: integer
+        bytes_sent:
+          type: integer
+        bytes_received:
+          type: integer
+
+    StoreRequest:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+          description: Key (hex or base64 encoded)
+        value:
+          type: string
+          description: Value (hex or base64 encoded)
+        ttl_hours:
+          type: integer
+          default: 24
+          description: Time-to-live in hours
+        replicate:
+          type: boolean
+          default: true
+          description: Whether to replicate to other nodes
+
+    StoreResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        key:
+          type: string
+        replicas:
+          type: integer
+          description: Number of replicas created
+
+    GetResponse:
+      type: object
+      properties:
+        found:
+          type: boolean
+        key:
+          type: string
+        value:
+          type: string
+          description: Value (hex or base64 encoded)
+        metadata:
+          $ref: '#/components/schemas/ValueMetadata'
+
+    ValueMetadata:
+      type: object
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        publisher:
+          type: string
+          description: Publisher node ID
+
+    FindNodesResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeInfo'
+
+    NodeInfo:
+      type: object
+      properties:
+        node_id:
+          type: string
+        address:
+          type: string
+        port:
+          type: integer
+        trust_level:
+          $ref: '#/components/schemas/TrustLevel'
+
+    PeerList:
+      type: object
+      properties:
+        total:
+          type: integer
+        peers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PeerSummary'
+
+    PeerSummary:
+      type: object
+      properties:
+        node_id:
+          type: string
+        address:
+          type: string
+        port:
+          type: integer
+        connected_since:
+          type: string
+          format: date-time
+        trust_level:
+          $ref: '#/components/schemas/TrustLevel'
+
+    PeerDetails:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/PeerSummary'
+        - type: object
+          properties:
+            stats:
+              $ref: '#/components/schemas/PeerStats'
+            trust_score:
+              $ref: '#/components/schemas/TrustScore'
+
+    PeerStats:
+      type: object
+      properties:
+        messages_sent:
+          type: integer
+        messages_received:
+          type: integer
+        bytes_sent:
+          type: integer
+        bytes_received:
+          type: integer
+        avg_latency_ms:
+          type: number
+          format: double
+
+    TrustScore:
+      type: object
+      properties:
+        overall:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        reliability:
+          type: number
+          format: float
+        honesty:
+          type: number
+          format: float
+        responsiveness:
+          type: number
+          format: float
+
+    TrustLevel:
+      type: string
+      enum:
+        - BLACKLISTED
+        - DISTRUSTED
+        - NEUTRAL
+        - TRUSTED
+        - VERIFIED
+
+    ConnectRequest:
+      type: object
+      required:
+        - address
+        - port
+      properties:
+        address:
+          type: string
+          description: Peer address (IP or hostname)
+        port:
+          type: integer
+          description: Peer port
+        node_id:
+          type: string
+          description: Expected node ID (optional)
+
+    NetworkConfig:
+      type: object
+      properties:
+        listen_port:
+          type: integer
+        max_connections:
+          type: integer
+        public_address:
+          type: string
+        bootstrap_nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BootstrapNode'
+        nat_traversal:
+          type: boolean
+
+    NetworkConfigUpdate:
+      type: object
+      properties:
+        max_connections:
+          type: integer
+        public_address:
+          type: string
+        nat_traversal:
+          type: boolean
+
+    BootstrapNode:
+      type: object
+      required:
+        - address
+        - port
+      properties:
+        address:
+          type: string
+        port:
+          type: integer
+
+    Metrics:
+      type: object
+      additionalProperties:
+        type: object
+        properties:
+          value:
+            type: number
+          timestamp:
+            type: string
+            format: date-time
+          labels:
+            type: object
+            additionalProperties:
+              type: string
+
+    MetricsSummary:
+      type: object
+      properties:
+        network:
+          $ref: '#/components/schemas/NetworkMetrics'
+        dht:
+          $ref: '#/components/schemas/DHTMetrics'
+        peers:
+          $ref: '#/components/schemas/PeerMetrics'
+
+    NetworkMetrics:
+      type: object
+      properties:
+        bytes_sent_total:
+          type: integer
+        bytes_received_total:
+          type: integer
+        messages_sent_total:
+          type: integer
+        messages_received_total:
+          type: integer
+
+    DHTMetrics:
+      type: object
+      properties:
+        keys_stored:
+          type: integer
+        nodes_known:
+          type: integer
+        lookups_total:
+          type: integer
+        stores_total:
+          type: integer
+
+    PeerMetrics:
+      type: object
+      properties:
+        connected:
+          type: integer
+        max_connections:
+          type: integer
+        total_connections:
+          type: integer
+        total_disconnections:
+          type: integer
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []

@@ -1,0 +1,36 @@
+# Docker Compose for A.E.T.H.E.R. Node
+# Single node deployment
+
+version: '3.8'
+
+services:
+  aether-node:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: aether-node:latest
+    container_name: aether-node
+    ports:
+      - "7821:7821"
+    volumes:
+      - aether-data:/aether_data
+    environment:
+      - AETHER_PORT=7821
+      - AETHER_LOG_LEVEL=INFO
+      - AETHER_MAX_CONNECTIONS=1000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.settimeout(5); result = s.connect_ex(('localhost', 7821)); s.close(); exit(0 if result == 0 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - aether-network
+
+volumes:
+  aether-data:
+    driver: local
+
+networks:
+  aether-network:
+    driver: bridge

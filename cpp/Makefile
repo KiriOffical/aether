@@ -12,6 +12,21 @@ LIB_DIR = lib
 BUILD_DIR = build
 BIN_DIR = bin
 
+# External libraries (pkg-config)
+PKG_CONFIG = pkg-config
+SODIUM_CFLAGS := $(shell $(PKG_CONFIG) --cflags libsodium 2>/dev/null || echo "-I/usr/include")
+SODIUM_LIBS := $(shell $(PKG_CONFIG) --libs libsodium 2>/dev/null || echo "-lsodium")
+LMDB_CFLAGS := $(shell $(PKG_CONFIG) --cflags lmdb 2>/dev/null || echo "-I/usr/include")
+LMDB_LIBS := $(shell $(PKG_CONFIG) --libs lmdb 2>/dev/null || echo "-llmdb")
+
+# IPFS module source files
+IPFS_SRCS = $(SRC_DIR)/ipfs/chunk.c \
+            $(SRC_DIR)/ipfs/storage.c \
+            $(SRC_DIR)/ipfs/network.c \
+            $(SRC_DIR)/ipfs/http.c \
+            $(SRC_DIR)/ipfs/node.c \
+            $(SRC_DIR)/ipfs/stun.c
+
 # C++ source files
 CXX_SRCS = $(SRC_DIR)/aether.cpp \
            $(SRC_DIR)/crypto.cpp \
@@ -32,6 +47,7 @@ C_SRCS = $(SRC_DIR)/crypto.c \
 CXX_OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(CXX_SRCS))
 C_OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/c_%.o,$(filter-out $(SRC_DIR)/node.c,$(C_SRCS)))
 C_OBJS := $(patsubst $(LIB_DIR)/%.c,$(BUILD_DIR)/%.o,$(C_OBJS))
+IPFS_OBJS = $(patsubst $(SRC_DIR)/ipfs/%.c,$(BUILD_DIR)/ipfs_%.o,$(IPFS_SRCS))
 OBJS = $(CXX_OBJS) $(C_OBJS)
 
 # Headers
@@ -51,14 +67,23 @@ C_HEADERS = $(INC_DIR)/aether.h \
             $(INC_DIR)/protocol.h \
             $(INC_DIR)/util.h
 
+IPFS_HEADERS = $(INC_DIR)/ipfs/chunk.h \
+               $(INC_DIR)/ipfs/storage.h \
+               $(INC_DIR)/ipfs/network.h \
+               $(INC_DIR)/ipfs/http.h \
+               $(INC_DIR)/ipfs/node.h \
+               $(INC_DIR)/ipfs/stun.h \
+               $(LIB_DIR)/mongoose.h
+
 # Output
 LIBRARY = $(BIN_DIR)/libaether.a
 NODE_BIN = $(BIN_DIR)/aether-node
+IPFS_BIN = $(BIN_DIR)/ipfs-node
 
 # Flags
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -I$(INC_DIR) -I$(LIB_DIR)
-CFLAGS = -Wall -Wextra -O2 -I$(INC_DIR) -I$(LIB_DIR)
-LDFLAGS =
+CFLAGS = -Wall -Wextra -O2 -I$(INC_DIR) -I$(LIB_DIR) $(SODIUM_CFLAGS) $(LMDB_CFLAGS)
+LDFLAGS = $(SODIUM_LIBS) $(LMDB_LIBS) -lpthread
 
 # Platform-specific
 ifeq ($(OS),Windows_NT)
@@ -67,12 +92,23 @@ ifeq ($(OS),Windows_NT)
     LDFLAGS += -lws2_32
     NODE_BIN = $(BIN_DIR)/aether-node.exe
 else
-    UNAME := $(shell uname -s)
-    ifeq ($(UNAME),Linux)
-        LDFLAGS += -lpthread
-    endif
-    ifeq ($(UNAME),Darwin)
-        # macOS
+    # Cross-compilation for Windows (MinGW)
+    ifeq ($(CROSS_COMPILE),mingw)
+        CXX = x86_64-w64-mingw32-g++
+        CC = x86_64-w64-mingw32-gcc
+        AR = x86_64-w64-mingw32-ar
+        CXXFLAGS += -D_WIN32_WINNT=0x0600 -static -static-libgcc -static-libstdc++
+        CFLAGS += -D_WIN32_WINNT=0x0600
+        LDFLAGS += -lws2_32 -static -static-libgcc -static-libstdc++
+        NODE_BIN = $(BIN_DIR)/aether-node.exe
+    else
+        UNAME := $(shell uname -s)
+        ifeq ($(UNAME),Linux)
+            LDFLAGS += -lpthread
+        endif
+        ifeq ($(UNAME),Darwin)
+            # macOS
+        endif
     endif
 endif
 
@@ -88,9 +124,9 @@ ifdef RELEASE
     CFLAGS += -O3 -DNDEBUG
 endif
 
-.PHONY: all clean windows linux macos debug release dirs cpp c lib test install
+.PHONY: all clean windows cross-windows linux macos debug release dirs cpp c lib test install ipfs
 
-all: dirs cpp $(NODE_BIN)
+all: dirs cpp $(NODE_BIN) ipfs
 
 dirs:
 	@mkdir -p $(BUILD_DIR)
@@ -109,7 +145,19 @@ lib: dirs $(OBJS)
 	$(AR) rcs $(LIBRARY) $(OBJS)
 	@echo "Static library built: $(LIBRARY)"
 
-windows: all
+# Windows build (native or cross-compile)
+windows:
+ifeq ($(OS),Windows_NT)
+	@$(MAKE) all
+else
+	@$(MAKE) CROSS_COMPILE=mingw all
+endif
+
+# Explicit cross-compilation for Windows from Linux
+cross-windows: clean
+	@echo "Cross-compiling for Windows x64..."
+	@$(MAKE) CROSS_COMPILE=mingw all
+	@echo "Windows binary built: $(BIN_DIR)/aether-node.exe"
 
 linux: all
 
@@ -126,6 +174,20 @@ $(NODE_BIN): $(OBJS) $(SRC_DIR)/main.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $(SRC_DIR)/main.cpp $(CXX_OBJS) $(C_OBJS) $(LDFLAGS)
 	@echo "Node binary built: $(NODE_BIN)"
 
+# Build IPFS node binary
+$(IPFS_BIN): $(IPFS_OBJS) $(SRC_DIR)/ipfs/main.c $(BUILD_DIR)/mongoose.o
+	$(CC) $(CFLAGS) -o $@ $(SRC_DIR)/ipfs/main.c $(IPFS_OBJS) $(BUILD_DIR)/mongoose.o $(LDFLAGS)
+	@echo "IPFS node binary built: $(IPFS_BIN)"
+
+# Build IPFS module
+ipfs: dirs $(IPFS_OBJS) $(BUILD_DIR)/mongoose.o $(IPFS_BIN)
+	@echo "IPFS module built successfully"
+
+# Compile mongoose
+$(BUILD_DIR)/mongoose.o: $(LIB_DIR)/mongoose.c $(LIB_DIR)/mongoose.h
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # Compile C++ source files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(CXX_HEADERS)
 	@mkdir -p $(BUILD_DIR)
@@ -135,6 +197,11 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(CXX_HEADERS)
 $(BUILD_DIR)/c_%.o: $(SRC_DIR)/%.c $(C_HEADERS)
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Compile IPFS source files
+$(BUILD_DIR)/ipfs_%.o: $(SRC_DIR)/ipfs/%.c $(IPFS_HEADERS)
+	@mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(LIB_DIR) -c -o $@ $<
 
 $(BUILD_DIR)/%.o: $(LIB_DIR)/%.c
 	@mkdir -p $(BUILD_DIR)/ed25519
@@ -178,6 +245,7 @@ help:
 	@echo "  all       - Build everything (default)"
 	@echo "  cpp       - Build C++ components"
 	@echo "  c         - Build C components"
+	@echo "  ipfs      - Build IPFS module and node"
 	@echo "  lib       - Build static library"
 	@echo "  debug     - Build with debug symbols"
 	@echo "  release   - Build with optimizations"

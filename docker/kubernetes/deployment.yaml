@@ -1,0 +1,86 @@
+# Kubernetes Deployment for A.E.T.H.E.R. Node
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aether-node
+  labels:
+    app: aether-node
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aether-node
+  template:
+    metadata:
+      labels:
+        app: aether-node
+    spec:
+      containers:
+      - name: aether-node
+        image: aether-node:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 7821
+          name: p2p
+          protocol: TCP
+        env:
+        - name: AETHER_PORT
+          value: "7821"
+        - name: AETHER_LOG_LEVEL
+          value: "INFO"
+        - name: AETHER_MAX_CONNECTIONS
+          value: "1000"
+        - name: AETHER_DATA_DIR
+          value: "/aether_data"
+        volumeMounts:
+        - name: data
+          mountPath: /aether_data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          tcpSocket:
+            port: 7821
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          tcpSocket:
+            port: 7821
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: aether-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aether-node
+  labels:
+    app: aether-node
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 7821
+    targetPort: 7821
+    protocol: TCP
+    name: p2p
+  selector:
+    app: aether-node
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aether-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard

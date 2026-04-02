@@ -1,0 +1,82 @@
+# Windows Cross-Compilation Makefile for IPFS Node
+# Uses MinGW-w64 toolchain - Windows Defender Friendly Build
+
+CC = x86_64-w64-mingw32-gcc
+WINDRES = x86_64-w64-mingw32-windres
+AR = x86_64-w64-mingw32-ar
+STRIP = x86_64-w64-mingw32-strip
+
+# Directories
+SRC_DIR = src
+INC_DIR = include
+LIB_DIR = lib
+BUILD_DIR = build-win
+BIN_DIR = bin
+
+# Windows libraries
+WINLIBS = /tmp/winlibs
+
+# IPFS source files (use storage_win.c and main_win.c for Windows)
+IPFS_SRCS = $(SRC_DIR)/ipfs/chunk.c \
+            $(SRC_DIR)/ipfs/storage_win.c \
+            $(SRC_DIR)/ipfs/network.c \
+            $(SRC_DIR)/ipfs/http.c \
+            $(SRC_DIR)/ipfs/node.c
+
+# Object files
+IPFS_OBJS = $(patsubst $(SRC_DIR)/ipfs/%.c,$(BUILD_DIR)/ipfs_%.o,$(IPFS_SRCS))
+
+# Headers
+IPFS_HEADERS = $(INC_DIR)/ipfs/chunk.h \
+               $(INC_DIR)/ipfs/storage.h \
+               $(INC_DIR)/ipfs/network.h \
+               $(INC_DIR)/ipfs/http.h \
+               $(INC_DIR)/ipfs/node.h \
+               $(LIB_DIR)/mongoose.h \
+               $(WINLIBS)/sodium-mingw/include/sodium.h
+
+# Output
+IPFS_BIN = $(BIN_DIR)/ipfs-node.exe
+
+# Flags - Optimized for smaller size and fewer heuristic triggers
+CFLAGS = -std=c11 -Wall -Wextra -Os \
+         -I$(INC_DIR) -I$(LIB_DIR) \
+         -I$(WINLIBS)/sodium-mingw/include \
+         -D_WIN32_WINNT=0x0600 -DMDB_USE_POSIX_MUTEX \
+         -fno-strict-aliasing -fno-common
+
+LDFLAGS = -L$(WINLIBS)/sodium-mingw/lib \
+          -lsodium -lws2_32 -lwsock32 -lpthread \
+          -static -Wl,--subsystem,console
+
+.PHONY: all clean dirs
+
+all: dirs $(BUILD_DIR)/version.o $(IPFS_BIN)
+	@echo "Windows build complete: $(IPFS_BIN)"
+
+dirs:
+	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(BIN_DIR)
+
+# Compile Windows resource file (version info + manifest)
+$(BUILD_DIR)/version.o: $(SRC_DIR)/ipfs/version.rc $(SRC_DIR)/ipfs/ipfs-node.exe.manifest
+	$(WINDRES) -I $(SRC_DIR)/ipfs -o $@ $<
+
+$(IPFS_BIN): $(IPFS_OBJS) $(BUILD_DIR)/mongoose.o $(BUILD_DIR)/version.o $(SRC_DIR)/ipfs/main_win.c
+	$(CC) $(CFLAGS) -o $@ $(SRC_DIR)/ipfs/main_win.c $(IPFS_OBJS) $(BUILD_DIR)/mongoose.o $(BUILD_DIR)/version.o $(LDFLAGS)
+	$(STRIP) --strip-all $@
+	@echo "Built: $@ ($(shell ls -lh $@ | awk '{print $$5}'))"
+	@echo "SHA256: $(shell sha256sum $@ | awk '{print $$1}')"
+
+# Compile IPFS source files
+$(BUILD_DIR)/ipfs_%.o: $(SRC_DIR)/ipfs/%.c $(IPFS_HEADERS)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# Compile Mongoose
+$(BUILD_DIR)/mongoose.o: $(LIB_DIR)/mongoose.c $(LIB_DIR)/mongoose.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -rf $(BUILD_DIR)
+	rm -f $(BIN_DIR)/*.exe
+	@echo "Clean complete"

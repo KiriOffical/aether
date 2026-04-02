@@ -1,0 +1,13 @@
+apiVersion: v2
+name: aether-node
+description: A Helm chart for A.E.T.H.E.R. P2P Node
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - p2p
+  - dht
+  - decentralized
+  - network
+maintainers:
+  - name: A.E.T.H.E.R. Team
