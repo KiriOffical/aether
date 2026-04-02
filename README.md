@@ -2,7 +2,62 @@
 
 **Asynchronous Edge-Tolerant Holographic Execution Runtime**
 
-A decentralized P2P network implementation with Distributed Hash Table (DHT), messaging, and peer management. Written in C/C++.
+A decentralized P2P network implementation with Distributed Hash Table (DHT), messaging, and peer management. Available in both C/C++ and Python.
+
+## Project Structure
+
+```
+aether/
+├── cpp/          # C/C++ implementation
+│   ├── include/  # Header files
+│   ├── src/      # Source files
+│   ├── lib/      # Third-party libraries (ed25519, sha256)
+│   └── Makefile  # Build system
+├── python/       # Python implementation
+│   ├── aether/   # Python package
+│   ├── tests/    # Test suite
+│   └── setup.py  # Package setup
+└── README.md     # This file
+```
+
+## Quick Start
+
+### C/C++ Implementation
+
+```bash
+cd cpp
+
+# Build
+make
+
+# Run a node
+./bin/aether-node run
+
+# Connect to a node
+./bin/aether-node connect --ping
+./bin/aether-node connect --store mykey myvalue
+./bin/aether-node connect --get mykey
+```
+
+### Python Implementation
+
+```bash
+cd python
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install package (optional)
+pip install -e .
+
+# Run a node
+python -m aether.node run
+
+# Connect to a node
+python -m aether.node connect --ping
+python -m aether.node connect --store mykey myvalue
+python -m aether.node connect --get mykey
+```
 
 ## Features
 
@@ -11,199 +66,9 @@ A decentralized P2P network implementation with Distributed Hash Table (DHT), me
 - **Peer Management**: Automatic peer discovery, connection management, and peer exchange (PEX)
 - **Message Protocol**: Binary protocol with support for ping, store, get, find operations
 - **Security**: Ed25519 signatures, SHA-256 hashing
-- **Modern C++**: C++17 with clean API and RAII resource management
+- **Cross-Language**: Identical functionality in C/C++ and Python
 
-## Requirements
-
-- C++17 compatible compiler (GCC 7+, Clang 5+, MSVC 2017+)
-- Make or compatible build system
-- Optional: `clang-format` for code formatting
-
-## Installation
-
-```bash
-# Clone or copy to your project directory
-cd aether
-
-# Build the project
-make
-
-# Build with debug symbols
-make debug
-
-# Build optimized release
-make release
-
-# Install to /usr/local
-sudo make install
-```
-
-## Quick Start
-
-### Run a Node
-
-```bash
-# Run with default settings (port 7821)
-./bin/aether-node run
-
-# Run with custom port and data directory
-./bin/aether-node run --port 8080 --datadir ./my_data
-
-# Enable verbose logging
-./bin/aether-node run --verbose
-
-# Show help
-./bin/aether-node run --help
-```
-
-### Connect to a Node
-
-```bash
-# Send a ping
-./bin/aether-node connect --ping
-
-# Store a value
-./bin/aether-node connect --store mykey myvalue
-
-# Get a value
-./bin/aether-node connect --get mykey
-
-# Get peer list
-./bin/aether-node connect --peers
-
-# Connect to remote node
-./bin/aether-node connect -H 192.168.1.100 -p 7821 --ping
-
-# Interactive mode
-./bin/aether-node connect -i
-```
-
-### Use as a Library
-
-```cpp
-#include "aether.hpp"
-#include "protocol.hpp"
-#include <iostream>
-
-using namespace aether;
-
-int main() {
-    // Create configuration
-    Config config;
-    config.listen_port = 7821;
-    config.data_dir = "./aether_data";
-    config.log_level = LogLevel::Info;
-
-    // Create and start node
-    Node node(config);
-    
-    if (node.start() != Error::Ok) {
-        std::cerr << "Failed to start node" << std::endl;
-        return 1;
-    }
-
-    // Store data in DHT
-    node.dht_store({0x01, 0x02}, {0x03, 0x04});
-
-    // Get data from DHT
-    auto value = node.dht_get({0x01, 0x02});
-    if (value) {
-        std::cout << "Found value!" << std::endl;
-    }
-
-    // Get node info
-    std::cout << "Node ID: " << node_id_to_hex(node.node_id()) << std::endl;
-    std::cout << "Port: " << node.port() << std::endl;
-    std::cout << "Peers: " << node.peer_count() << std::endl;
-
-    // Run main loop (in separate thread)
-    std::thread run_thread([&node]() { node.run(); });
-
-    // ... do other work ...
-
-    // Stop node
-    node.stop();
-    run_thread.join();
-
-    return 0;
-}
-```
-
-### Use the Client
-
-```cpp
-#include "protocol.hpp"
-#include <iostream>
-
-using namespace aether;
-
-int main() {
-    // Connect to a node
-    Client client("localhost", 7821);
-    
-    if (client.connect() != Error::Ok) {
-        std::cerr << "Failed to connect" << std::endl;
-        return 1;
-    }
-
-    // Send ping
-    double latency = client.ping();
-    std::cout << "Latency: " << latency << "ms" << std::endl;
-
-    // Store value
-    client.store("mykey", "myvalue");
-
-    // Get value
-    auto value = client.get("mykey");
-    if (value) {
-        std::cout << "Value: " << *value << std::endl;
-    }
-
-    // Get peers
-    auto peers = client.peer_exchange();
-    std::cout << "Found " << peers.size() << " peers" << std::endl;
-
-    client.disconnect();
-    return 0;
-}
-```
-
-## Architecture
-
-```
-aether/
-├── include/
-│   ├── aether.hpp      # Core types and constants
-│   ├── crypto.hpp      # Cryptographic primitives
-│   ├── dht.hpp         # DHT routing and storage
-│   ├── peer.hpp        # Peer management
-│   └── protocol.hpp    # Protocol and Node/Client classes
-├── src/
-│   ├── aether.cpp      # Core API implementation
-│   ├── crypto.cpp      # Crypto implementation
-│   ├── dht.cpp         # DHT implementation
-│   ├── peer.cpp        # Peer management
-│   ├── protocol.cpp    # Protocol, Node, Client
-│   └── main.cpp        # CLI entry point
-├── lib/
-│   ├── ed25519/        # Ed25519 signature library
-│   └── sha256/         # SHA-256 hash library
-└── bin/                # Built binaries
-```
-
-## Protocol
-
-### Message Format
-
-```
-+--------+--------+--------+--------+--------+
-|  Type  |     Payload Length (32-bit)       |
-+--------+--------+--------+--------+--------+
-|              Payload (JSON)                 |
-+--------+--------+--------+--------+--------+
-```
-
-### Message Types
+## Message Types
 
 | Type | Name | Description |
 |------|------|-------------|
@@ -220,80 +85,75 @@ aether/
 | 11 | PEER_EXCHANGE | Request peer list |
 | 12 | ERROR | Error message |
 
-## Configuration
+## API Examples
 
-### Config Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `identity_path` | string | "" | Path to keypair file |
-| `data_dir` | string | "aether_data" | Data directory |
-| `listen_port` | uint16 | 7821 | TCP listening port |
-| `max_connections` | size_t | 10000 | Maximum peer connections |
-| `log_level` | LogLevel | Info | Logging verbosity |
-| `bootstrap_nodes` | vector | [...] | Bootstrap node addresses |
-| `auth_token` | string | "" | Authentication token |
-
-## API Reference
-
-### Node Class
+### C/C++
 
 ```cpp
-class Node {
-    // Lifecycle
-    Node(const Config& config);
-    Error start();           // Start listening
-    Error stop();            // Stop node
-    Error run();             // Run main loop (blocking)
+#include "aether.hpp"
+#include "protocol.hpp"
 
-    // Info
-    const NodeId& node_id() const;
-    uint16_t port() const;
-    size_t peer_count() const;
-    NodeStats stats() const;
+using namespace aether;
 
-    // DHT operations
-    Error dht_store(const std::vector<uint8_t>& key,
-                    const std::vector<uint8_t>& value);
-    std::optional<std::vector<uint8_t>> dht_get(const std::vector<uint8_t>& key) const;
-    std::vector<BucketEntry> dht_find_node(const NodeId& target, size_t k = 20) const;
+int main() {
+    // Create and start node
+    Config config;
+    config.listen_port = 7821;
+    Node node(config);
+    node.start();
 
-    // Messaging
-    Error send(const NodeId& target_id, const std::vector<uint8_t>& data);
-    Error broadcast(const std::vector<uint8_t>& data);
+    // Store data in DHT
+    node.dht_store({0x01, 0x02}, {0x03, 0x04});
 
-    // Callbacks
-    void set_message_callback(MessageCallback cb);
-    void set_peer_callback(PeerCallback cb);
-    void set_log_callback(LogCallback cb);
-};
+    // Get data from DHT
+    auto value = node.dht_get({0x01, 0x02});
+
+    // Use client
+    Client client("localhost", 7821);
+    client.connect();
+    client.store("key", "value");
+    auto result = client.get("key");
+    client.disconnect();
+
+    node.stop();
+    return 0;
+}
 ```
 
-### Client Class
+### Python
 
-```cpp
-class Client {
-    Client(const std::string& host = "localhost", uint16_t port = 7821);
+```python
+from aether import Node, Config, Client
 
-    Error connect(int timeout = 5);
-    void disconnect();
-    bool is_connected() const;
+# Create and start node
+config = Config(listen_port=7821)
+node = Node(config)
+node.start()
 
-    double ping();
-    Error store(const std::vector<uint8_t>& key,
-                const std::vector<uint8_t>& value);
-    std::optional<std::vector<uint8_t>> get(const std::vector<uint8_t>& key);
-    std::vector<BucketEntry> find_node(const NodeId& target);
-    std::vector<Endpoint> peer_exchange();
-};
+# Store data in DHT
+node.dht_store(b'key', b'value')
+
+# Get data from DHT
+value = node.dht_get(b'key')
+
+# Use client
+client = Client('localhost', 7821)
+client.connect()
+client.store('key', 'value')
+result = client.get('key')
+client.disconnect()
+
+node.stop()
 ```
 
 ## Development
 
-### Building
+### C/C++
 
 ```bash
-# Build everything
+cd cpp
+
+# Build
 make
 
 # Debug build
@@ -302,57 +162,44 @@ make debug
 # Release build
 make release
 
-# Build static library only
-make lib
-
-# Clean build artifacts
+# Clean
 make clean
+
+# Install
+sudo make install
 ```
 
-### Testing
+### Python
 
 ```bash
-# Run basic tests
-make test
+cd python
 
-# Test the node binary
-./bin/aether-node --help
+# Install dependencies
+pip install -r requirements.txt
+
+# Run tests
+pytest tests/
+
+# Format code
+black aether/
+
+# Lint
+flake8 aether/
+
+# Type check
+mypy aether/
 ```
 
-### Code Style
+## Requirements
 
-```bash
-# Format code (requires clang-format)
-make format
+### C/C++
+- C++17 compatible compiler (GCC 7+, Clang 5+, MSVC 2017+)
+- Make or compatible build system
 
-# Run linter (requires cppcheck)
-make lint
-```
-
-## Error Handling
-
-All API functions return `Error` enum values:
-
-```cpp
-enum class Error {
-    Ok = 0,
-    Io = -1,
-    InvalidArg = -2,
-    NoMemory = -3,
-    ConnectionClosed = -4,
-    HandshakeFailed = -5,
-    // ... more error types
-};
-
-// Convert error to string
-const char* error_string(Error err);
-```
-
-## Thread Safety
-
-- `Node` is thread-safe for concurrent access
-- `Client` is NOT thread-safe (use one per thread)
-- All callbacks are invoked from worker threads
+### Python
+- Python 3.8+
+- PyNaCl (optional, for Ed25519)
+- pytest (for testing)
 
 ## License
 
@@ -363,6 +210,7 @@ MIT License - See LICENSE file for details.
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `make test`
-5. Format code: `make format`
-6. Submit a pull request
+4. Run tests
+5. Submit a pull request
+
+Both C/C++ and Python implementations should be kept in sync for feature parity.
