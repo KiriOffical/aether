@@ -1,0 +1,28 @@
+# A.E.T.H.E.R. Node Configuration
+# Copy this file to config.yaml and customize
+
+node:
+  # Network settings
+  port: 7821
+  max_connections: 10000
+  
+  # Data storage
+  data_dir: ./aether_data
+  
+  # Identity (leave empty to auto-generate)
+  identity_path: ""
+  
+  # Logging
+  log_level: INFO  # DEBUG, INFO, WARN, ERROR
+  log_file: ./aether.log
+  
+  # Security
+  auth_token: ""  # Set to enable authentication
+  enable_tls: false
+  tls_cert_path: ""
+  tls_key_path: ""
+
+# Peer bootstrap nodes (optional)
+bootstrap_peers:
+  # - addr: 192.168.1.100
+  #   port: 7821
